@@ -12,7 +12,7 @@ class MarkdownPreviewView
     new MarkdownPreviewView(params)
 
   constructor: ({@editorId, @filePath}) ->
-    @element = document.createElement('div')
+    @element = document.createElement('div')    
     @element.classList.add('markdown-preview', 'native-key-bindings')
     @element.tabIndex = -1
     @emitter = new Emitter
@@ -148,7 +148,9 @@ class MarkdownPreviewView
         @element.removeAttribute('data-use-github-style')
 
   renderMarkdown: ->
-    @showLoading() unless @loaded
+    @showLoading() unless @loaded    
+    if fontSize = atom.config.get('editor.fontSize')
+      @element.style.cssText = 'font-size: ' + fontSize + 'px;'
     @getMarkdownSource()
     .then (source) => @renderMarkdownText(source) if source?
     .catch (reason) => @showError({message: reason})
@@ -172,6 +174,47 @@ class MarkdownPreviewView
 
       renderer.toHTML source, @getPath(), @getGrammar(), callback
 
+  scrollToViewPosition: ->
+    scrollPercentage = 0
+    markerLine = -1
+    correspondingElement = null
+    for textEditor in atom.workspace.getTextEditors()
+      if textEditor.id.toString() == @editorId
+        markerLine = textEditor.cursors[0].marker.oldHeadBufferPosition.row;
+        # Do a binary search for the right line
+        left = 0
+        right = @element.childNodes.length - 1
+        while left <= right
+          mid = Math.ceil((left + right) / 2)
+          child = @element.childNodes[mid]
+          validLeft = mid
+          childLine = 0
+          if typeof child.dataset == "undefined"
+            validLeft = mid - 1
+            while validLeft >= left and typeof @element.childNodes[validLeft].dataset == "undefined"
+              validLeft -= 1
+            validRight = mid + 1
+            while validRight <= right and typeof @element.childNodes[validRight].dataset == "undefined"
+              validRight += 1        
+            a1 = parseInt(@element.childNodes[validLeft].dataset['line'])
+            a2 = (@element.childNodes[validRight].dataset['line'] - @element.childNodes[validLeft].dataset['line']) / (validRight - validLeft)
+            childLine = a1 + a2
+          else
+            childLine = parseInt(child.dataset['line'])
+          if childLine == markerLine
+            left = validLeft
+            break
+          else if childLine < markerLine
+            left = mid + 1
+          else
+            right = mid - 1
+        if left >= @element.childNodes.length
+          left = @element.childNodes.length - 1
+        correspondingElement = @element.childNodes[left]
+        break
+    if correspondingElement != null
+      @element.scrollTop = correspondingElement.offsetTop - (textEditor.cursors[0].marker.oldHeadScreenPosition.row - textEditor.firstVisibleScreenRow) * textEditor.editorElement.model.lineHeightInPixels
+
   renderMarkdownText: (text) ->
     renderer.toDOMFragment text, @getPath(), @getGrammar(), (error, domFragment) =>
       if error
@@ -181,6 +224,7 @@ class MarkdownPreviewView
         @loaded = true
         @element.textContent = ''
         @element.appendChild(domFragment)
+        @scrollToViewPosition()
         @emitter.emit 'did-change-markdown'
 
   getTitle: ->
