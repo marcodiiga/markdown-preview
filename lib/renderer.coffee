@@ -109,6 +109,7 @@ convertCodeBlocksToAtomEditors = (domFragment, defaultLanguage='text') ->
     fenceName = codeBlock.getAttribute('class')?.replace(/^lang-/, '') ? defaultLanguage
 
     editorElement = document.createElement('atom-text-editor')
+    editorElement.dataset.line = preElement.dataset.line
     editorElement.setAttributeNode(document.createAttribute('gutter-hidden'))
     editorElement.removeAttribute('tabindex') # make read-only
 

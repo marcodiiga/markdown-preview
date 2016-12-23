@@ -209,11 +209,18 @@ class MarkdownPreviewView
           else
             right = mid - 1
         if left >= @element.childNodes.length
-          left = @element.childNodes.length - 1
+          left = @element.childNodes.length - 1        
         correspondingElement = @element.childNodes[left]
+        while typeof correspondingElement.offsetTop == "undefined" and left >= 0
+          left = left - 1
+          correspondingElement = @element.childNodes[left]
         break
     if correspondingElement != null
-      @element.scrollTop = correspondingElement.offsetTop - (textEditor.cursors[0].marker.oldHeadScreenPosition.row - textEditor.firstVisibleScreenRow) * textEditor.editorElement.model.lineHeightInPixels
+      compensation = (textEditor.cursors[0].marker.oldHeadScreenPosition.row - textEditor.firstVisibleScreenRow) * textEditor.editorElement.model.lineHeightInPixels
+      #console.log(correspondingElement.model.constructor.name )
+      if typeof correspondingElement.model != "undefined" and correspondingElement.model.constructor.name == "TextEditor" and correspondingElement.model.cursors.length > 0
+        compensation -= correspondingElement.model.cursors[0].marker.oldHeadBufferPosition.row * correspondingElement.model.lineHeightInPixels
+      @element.scrollTop = correspondingElement.offsetTop - compensation
 
   renderMarkdownText: (text) ->
     renderer.toDOMFragment text, @getPath(), @getGrammar(), (error, domFragment) =>
